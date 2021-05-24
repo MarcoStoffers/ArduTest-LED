@@ -13,6 +13,8 @@ To dimm the LED, you can lower the current during measurement down to 3mA or up 
 
 The housing is designed in Fusion360. You can print it on any 3D FDM Printer with PLA or any other material you want. You will need 4x threaded inserts in M3 and 4 screws M3x25 to hold the front on the housing. The Frontplate is desgined in Inkscape in german. You can edit the SVG file for your own like.
 
+The buttons are also designed in Fusion360. You will need an SLA Printer to get good results (FDM Printer will not work here fine).
+
 ## EasyEDA Source for PCB ordering through JLCPCB
 
 https://oshwlab.com/mstoffers/ArduTest-LED
