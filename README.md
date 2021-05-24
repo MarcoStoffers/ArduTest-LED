@@ -9,6 +9,10 @@ Select the current and the destination voltage (your battery), connect the LED t
 
 To dimm the LED, you can lower the current during measurement down to 3mA or up to 40mA. The Tester always starts with a default current of 10mA!
 
+## Tips for DIYing
+
+The housing is designed in Fusion360. You can print it on any 3D FDM Printer with PLA or any other material you want. You will need 4x threaded inserts in M3 and 4 screws M3x25 to hold the front on the housing. The Frontplate is desgined in Inkscape in german. You can edit the SVG file for your own like.
+
 ## EasyEDA Source for PCB ordering through JLCPCB
 
 https://oshwlab.com/mstoffers/ArduTest-LED
