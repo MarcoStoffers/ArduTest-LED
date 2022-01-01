@@ -11,7 +11,7 @@ The PWM start voltage for testing the LED was fixed set to 2.5V. This was good f
 
 Now you can adjust the LED voltage with the "V up" ("Spannung +") and "V down" ("Spannung -") keys. IF YOU SET THIS VOLTAGE TO HIGH, YOUR LED WILL BLOW UP! For storing this value, press "I down" ("Strom -") key.
 
-If this is the first power up for this new firmware version, the default value of 2.5V will be stored in EEprom. You will see a short notice on the LCD
+If this is the first power up for new firmware version, the default value of 2.5V will be stored in EEprom. You will see a short notice on the LCD
 
 ![eeprominitok](https://marcostoffers.github.io/eeprominitok.jpg)
 
