@@ -19,7 +19,8 @@
 **  0.2: - optimize code and cleanup
 **  0.3: - rewrite LCD display routine to minimize flicker
 **  0.4: - rewrite PWM routine to avoid LED over current
-**  0.5: - added voltage test routine while pressing I-Down at startup
+**  0.5: - add voltage test routine while pressing I-Down at startup
+**  0.6: - add setup for led forward voltage at measure-start (be careful what you are doing here!)
 **
 ** Inputs:
 ** --------
@@ -30,7 +31,7 @@
 ** A4 = Key V Down
 ** A5 = Key V Up
 ** A6 = analog Voltage Battery
-*
+**
 ** Outputs:
 ** ---------
 ** D8 = LCD RS 
@@ -40,21 +41,27 @@
 ** D4 = LCD Data 6
 ** D2 = LCD Data 7
 ** D3 = PWM output
-*  
+** 
+** EEPROM data:
+** -------------
+** 0 - values stored? (255 = no / 0 = yes)
+** 1 - LED voltage start PWM vlaue (8bit)
+**
 ** Board:
 ** -------
 ** Arduino Nano V3 | Print: ArduTest LED V0.2
 ** 
 ** Author: M.Stoffers
-** Year: 2021
+** Year: 2022
 ** License: CC (BY|NC|SA)
 ** -------------------------------------------------------------------------*/  
 #include <LiquidCrystal.h>
+#include <avr/eeprom.h>
 
 // -----------------------------
 // PIN-defines
 // -----------------------------
-#define Version "V0.5"
+#define Version "V0.6"
 #define LCD_D2 2
 #define LCD_D4 4
 #define LCD_D5 5
@@ -101,7 +108,7 @@ uint8_t bat3_Char[] = { 0x00, 0x0C, 0x1E, 0x12, 0x12, 0x12, 0x12, 0x1E };
 
 uint16_t VCC;                                                     // exact VCC
 uint32_t vbat;                                                    // battery voltage
-uint8_t pwmout=0;                                                 //pwm output of current driver
+uint8_t pwmout=0;                                                 // pwm output of current driver
 long atop, abot, arr, abat;                                       // analog sample values
 long vled, vrr, irr, pset;                                        // LED voltage, Resistor voltage, resistor current, display power
 uint8_t itest=10;                                                 // test current, starting at 10mA
@@ -114,8 +121,12 @@ uint8_t r24_loop;
 boolean r24_found;
 boolean rvalid=false;                                             // flag if resistor value is valid 
 
-boolean lcdflash = false;                                         //lcd flashing phase variable
-long lastlcd=0, lastkey=0, lastvcc=0;                             //time of last lcd & key update
+boolean lcdflash = false;                                         // lcd flashing phase variable
+long lastlcd=0, lastkey=0, lastvcc=0;                             // time of last lcd & key update
+
+uint16_t LED_forw_v_start;                                        // LED measure startup up voltage
+uint16_t vsetup=0;
+boolean while_loop = true;
 
 // -----------------------------
 // Setup
@@ -146,11 +157,14 @@ void setup() {
   if(between(vbat,8700,9900)) battery_status = 1;                 // decide to show which battery symbol
   else if(between(vbat,8000,8699)) battery_status = 2;            // 1=full, 2=half, 3=empty
   else battery_status = 3;                                        // if voltage to low, show empty battery symbol
+
+  Check_EEPROM();                                                 // check if EEPROM is already initialized and read values
   
   StartupScreen();                                                // Show Startup Screen
 
-  if(!digitalRead(KEY_I_DW)) Voltage_Test();
-
+  if(!digitalRead(KEY_I_DW)) Voltage_Test();                      // If key "current down" is pressed at startup, call Sub voltage test
+  if(!digitalRead(KEY_I_UP)) Voltage_Setup();                     // If key "current up" is pressed at startup, call Sub voltage setup
+  
   Draw_Init_LCD();
 }
 
@@ -171,7 +185,7 @@ void loop() {
   vrr = arr * VCC/1023;                                           // calc voltage across sense resistor
   irr = vrr / 10;                                                 // led and resistor current in mA
 
-  if(irr < 1) pwmout = 127;                                       // if test LED is not present put PWM to half to avoid too much current 
+  if(irr < 1) pwmout = LED_forw_v_start;                          // if test LED is not present put PWM to given startup voltage 
   else {
     if(irr < itest) {                                             // ramp up current if too low
       pwmout++;
@@ -459,5 +473,68 @@ void Voltage_Test() {
     lcd.write(((VCC/10)%10)+'0');                                 // and second decimal
     lcd.print("V");                                               // write the unit "V"
     delay(250);                                                   // wait 250ms for a LCD Refresh
+  }
+}
+
+// ---------------------------------
+// Subroutine to check EEPROM
+// ---------------------------------
+void Check_EEPROM() {
+  eeprom_busy_wait();                                             // wait for eeprom to become ready
+  uint8_t ee_value0 = eeprom_read_byte((uint8_t*)0);              // read cell#0
+  if(ee_value0 == 0xff) {                                         // if it contains 0xff the value is not set
+    eeprom_busy_wait();                                           // wait
+    eeprom_write_byte((uint8_t*)1,128);                           // write value 128 to cell#1
+    LED_forw_v_start = 128;                                       // store this value also in variable
+    eeprom_busy_wait();                                           // and wait
+    eeprom_write_byte((uint8_t*)0,0);                             // and write a 0x00 to cell#0 -> value set
+    lcd.setCursor(0,0);                                           // set LCD position 0 in line one
+    lcd.print("EEPROM init OK!");                                 // write label
+    delay(1500);                                                  // wait for 1,5s
+    lcd.clear();                                                  // and clear LCD screen
+  }
+  else{
+    eeprom_busy_wait();                                           // if cell#0 contains any other value
+    LED_forw_v_start = eeprom_read_byte((uint8_t*)1);             // read cell#1 and store it in variable
+  }
+}
+
+// ---------------------------------
+// Subroutine to setup LED voltage
+// ---------------------------------
+void Voltage_Setup() {
+  lcd.setCursor(0,0);                                             // go to position 0 line one
+  lcd.write(4);                                                   // draw the LED symbol
+  lcd.write(5);
+  lcd.print(" Vstart:");                                          // and add Label
+  lcd.setCursor(0,1);                                             // go to position 0 line two
+  lcd.print("[I-:save]");                                         // and add store-Label
+  
+  while(while_loop) {                                             // this goes forever
+
+    vsetup=(5000/255)*LED_forw_v_start;                           // convert 8bit pwm value to mV
+    lcd.setCursor(11,0);                                          // go to position 13 line one
+    lcd.write(((vsetup/1000)%10)+'0');                            // print ones of vsetup
+    lcd.write('.');                                               // write a dot
+    lcd.write(((vsetup/100)%10)+'0');                             // print first decimal of vsetup
+    lcd.write(((vsetup/10)%10)+'0');                              // and second decimal
+    lcd.print("V");                                               // write the unit "V"
+
+    if(!digitalRead(KEY_V_UP)) {                                  // if button V-Up is pressed
+      LED_forw_v_start++;                                         // increase  voltage by 1
+      if(LED_forw_v_start>250) LED_forw_v_start=250;              // and limit set voltage to 250
+      delay(250);                                                 // wait 250ms for debounce & LCD Refresh
+    }
+    if(!digitalRead(KEY_V_DW)) {                                  // if button V-Down is pressed
+      LED_forw_v_start--;                                         // decrease voltage by 1
+      if(LED_forw_v_start<100) LED_forw_v_start=100;              // and limit it to 100
+      delay(250);                                                 // wait 250ms for debounce & LCD Refresh
+    }
+    if(!digitalRead(KEY_I_DW)) {                                  // if button I-Down is pressed
+      eeprom_busy_wait();                                         // wait for eeprom to become ready
+      eeprom_write_byte((uint8_t*)1,LED_forw_v_start);            // and store pwm value in cell#1
+      while_loop=false;                                           // set while loop to end
+      delay(250);                                                 // wait 250ms for debounce & LCD Refresh
+    }
   }
 }
