@@ -3,6 +3,18 @@
 
 Based on an idea of https://jaycar.com.au
 
+## Update: new Firmware V0.6 with adjustable LED PWM start voltage
+
+The PWM start voltage for testing the LED was fixed set to 2.5V. This was good for standard LEDs. But if you want to test white or blue LEDs with 3V or higher, it won't work. So I added a setup for this startup voltage. Press "I up" ("Strom +") while switching on the tester and wait for the startup screen to complete.
+
+![lcdvstartsetup](https://marcostoffers.github.io/lcdvstartsetup.jpg)
+
+Now you can adjust the LED voltage with the "V up" ("Spannung +") and "V down" ("Spannung -") keys. IF YOU SET THIS VOLTAGE TO HIGH, YOUR LED WILL BLOW UP! For storing this value, press "I down" ("Strom -") key.
+
+If this is the first power up for this new firmware version, the default value of 2.5V will be stored in EEprom. You will see a short notice on the LCD
+
+![eeprominitok](https://marcostoffers.github.io/eeprominitok.jpg)
+
 ## An Arduino based LED Tester with LCD
 
 Select the current and the destination voltage (your battery), connect the LED to the tester and get the needed value for a serial connected Resistor. You can also see the measured values for the LED (forward voltage and current).
